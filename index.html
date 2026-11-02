@@ -1,75 +1,317 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AI Creative Agent</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PLC 스튜디오 - 코드 생성 · 오류 검사 · 화면 작화</title>
+<style>
+:root{--bg:#f3f2ed;--panel:#fffdf9;--soft:#f6f4ee;--ink:#25312f;--sub:#68766f;--line:#e1ddd2;--accent:#3d8a82;--accent-d:#2f706a;--accent-bg:#e4f0ed;--amber:#b9822d;--red:#c0483c;--code:#1f2a2c;--code-ink:#dcebe6;--hmi:#36444a;--shadow:0 1px 2px rgba(40,50,45,.06),0 8px 24px rgba(40,50,45,.06);color-scheme:light}
+:root:not([data-theme=light]){}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#171d1f;--panel:#20282b;--soft:#1b2326;--ink:#e3ebe8;--sub:#9aaaa5;--line:#313d41;--accent:#63b8ae;--accent-d:#7cc8be;--accent-bg:#233a38;--amber:#e0b062;--red:#ef7f72;--code:#12191b;--hmi:#10171a;--shadow:none;color-scheme:dark}}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 "Pretendard","Noto Sans KR","Malgun Gothic",system-ui,sans-serif;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+header{padding:32px 28px 10px;max-width:1320px;margin:0 auto;display:flex;align-items:center;gap:14px}
+.logo{width:44px;height:44px;border-radius:12px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;flex:none}
+h1{font-size:24px;margin:0;letter-spacing:-.02em;line-height:1.2}
+header p{margin:2px 0 0;color:var(--sub);font-size:14px}
+main{max-width:1320px;margin:0 auto;padding:16px 28px 48px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px;align-items:start}
+@media(max-width:980px){main{grid-template-columns:1fr;padding:12px 16px 40px}header{padding:24px 16px 8px}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+.tabs{display:flex;gap:6px;padding:10px;background:var(--soft);border-bottom:1px solid var(--line)}
+.tabs button{flex:1;padding:11px 8px;border:0;border-radius:10px;background:none;font:inherit;font-weight:600;font-size:15px;color:var(--sub);cursor:pointer;transition:background .15s,color .15s}
+.tabs button:hover{background:var(--accent-bg)}
+.tabs button[aria-selected=true]{background:var(--panel);color:var(--accent-d);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.pane{padding:22px;display:none}.pane.on{display:block}
+label{display:block;font-size:13px;font-weight:600;color:var(--sub);margin:0 0 5px}
+input,select,textarea{width:100%;font:inherit;font-size:15px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--ink)}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-bg)}
+textarea,pre{font-family:ui-monospace,"D2Coding",Consolas,monospace;font-size:13.5px;line-height:1.65}
+textarea{min-height:240px;resize:vertical}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:16px}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}
+.btn{padding:10px 20px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:#fff;font:inherit;font-weight:600;cursor:pointer;transition:background .15s}
+.btn:hover{background:var(--accent-d)}
+.btn.ghost{background:transparent;color:var(--accent-d)}
+.btn.ghost:hover{background:var(--accent-bg)}
+:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+pre{background:var(--code);color:var(--code-ink);padding:18px;border-radius:12px;overflow:auto;margin:0;min-height:130px;white-space:pre}
+.res{list-style:none;margin:14px 0 0;padding:0}
+.res li{padding:10px 14px;border-left:4px solid var(--line);background:var(--soft);margin-bottom:8px;border-radius:0 10px 10px 0}
+.res .err{border-color:var(--red)}.res .warn{border-color:var(--amber)}.res .info{border-color:var(--accent)}.res .ok{border-color:var(--accent);background:var(--accent-bg)}
+.res b{margin-right:10px}.res .err b{color:var(--red)}.res .warn b{color:var(--amber)}.res .info b,.res .ok b{color:var(--accent-d)}
+.hmi{display:flex;flex-wrap:wrap;gap:14px;padding:20px;background:var(--hmi);border-radius:12px;min-height:180px;margin-top:6px;align-content:flex-start}
+.w{position:relative;background:#e8eeec;color:#25312f;border:2px solid #aebdb9;border-radius:12px;padding:14px 12px 10px;min-width:120px;text-align:center;font-size:14px}
+.w small{display:block;color:#5d6e69;font-family:ui-monospace,Consolas,monospace;margin-top:4px}
+.w .x{position:absolute;top:2px;right:6px;border:0;background:none;color:#5d6e69;cursor:pointer;font-size:18px}
+.hb{width:100%;padding:12px 6px;font:inherit;font-weight:700;border:2px solid #3d8a82;background:#fff;color:#2f706a;border-radius:10px;cursor:pointer;touch-action:none;user-select:none}
+.hb.on{background:#3d8a82;color:#fff}
+.lamp{width:38px;height:38px;border-radius:50%;margin:2px auto 8px;background:#8a9894;border:3px solid #66756f}
+.lamp.on{background:#4fd68a;border-color:#2aa062;box-shadow:0 0 16px #4fd68a}
+.num{width:90px;text-align:center;margin-top:6px;background:#fff;color:#25312f}
+.hint{font-size:13.5px;color:var(--sub);margin:12px 0 0}
+.chat{position:sticky;top:16px}
+.chat h2{font-size:16px;margin:0;padding:16px 20px;border-bottom:1px solid var(--line);background:var(--soft);display:flex;align-items:center;gap:8px}
+.chat h2::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--accent)}
+#status{margin:0;padding:12px 20px;color:var(--sub);font-size:14px}
+#webchat{height:560px}
+</style>
 </head>
 <body>
-  <p id="status" role="status" aria-live="polite">채팅에 연결하는 중입니다...</p>
-  <div id="webchat" style="height: 600px"></div>
-  <script src="https://cdn.botframework.com/botframework-webchat/4.18.0/webchat.js"></script>
-  <script>
-    const BROKER_URL = "https://dl-broker-juwon-4jt3z.azurewebsites.net/api/directlineToken";
-    const SEALED = "P7kPKE7HGy43b-NEOESjN8HayWL69JHx4YR8mkkKfZ9bwasEC57t8ETqCBUDBSLYl7XYT_TItxOvcF-TcaK1fOLnHfBs1F3M_j1vhV51fDYRJM-BRKoCPeMDdQi1Ldh-9A6bFncp5QIhlHnCcreeDEJxlbqkxhcHrUoNAh563AQc3cD6_otDRjssnApBBRm_0b8PqTs_QQvqMK45fznBMkufCcAj6pHIxfs-hV9mTOfErXGj9JYsXNqXIQfiIiXtYFwQTMIBb5oWbN33o3-UoqygXtH_5Gf6mLcL1bd2V7bXdzOT0Qsx-uGBpQrmjhwaLZLh7GUftrTvZuLTNw6s7w7uwxsU_2chmCxWRZW0FTyQ2nuxeYOzV3h7SZlc-Cj-_isLw3N53IvtzzB_zY3EGhFxNvVUSSDm17etz_0CbDV8xYepktTZX6-6OFh-WvZlS6L5PaYMgt8ZSB-eHStPB1KnQptW-9qmSxdeNHKGCfcxkmlXwKcb_6kfvpBWIhHOzZ5tO5I7Ov5Q0C9jAHV0RdaPKvT1KItEYvjPE6wrQL-uNZ0X0_ytmrtR6DFkjXy_RDtlMY3yyNsvyfQTIB9lsC506uC9yAoWiNUa2SBw82NEckIGO2D479pO3OYrcXfE1t1Nca1JD0orw4kMU8A";
-    const status = document.getElementById("status");
+<header>
+  <div class="logo" aria-hidden="true">PLC</div>
+  <div>
+    <h1>PLC 스튜디오</h1>
+    <p>코드를 만들고, 오류를 검사하고, 화면(작화)을 구성합니다. 오른쪽 AI에게 바로 물어볼 수도 있어요.</p>
+  </div>
+</header>
+<main>
+  <section class="card" aria-label="작업 도구">
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="gen">코드 생성</button>
+      <button role="tab" aria-selected="false" data-tab="chk">오류 검사</button>
+      <button role="tab" aria-selected="false" data-tab="hmi">화면 작화</button>
+    </div>
 
-    function showError(message) {
-      status.hidden = false;
-      status.textContent = message;
+    <div class="pane on" id="p-gen">
+      <div class="row">
+        <div><label for="g-pat">회로 종류</label>
+          <select id="g-pat">
+            <option value="hold">자기유지 (시작/정지)</option>
+            <option value="inter">정역 운전 (인터락)</option>
+            <option value="ton">온딜레이 타이머</option>
+            <option value="ctu">업 카운터</option>
+          </select></div>
+      </div>
+      <div class="row">
+        <div><label for="f-A">시작 입력</label><input id="f-A" value="START"></div>
+        <div><label for="f-B">역방향 시작</label><input id="f-B" value="START_REV"></div>
+        <div><label for="f-S">정지 입력</label><input id="f-S" value="STOP"></div>
+        <div><label for="f-Y1">출력</label><input id="f-Y1" value="MOTOR_FWD"></div>
+        <div><label for="f-Y2">반대 출력</label><input id="f-Y2" value="MOTOR_REV"></div>
+        <div><label for="f-T">타이머 시간</label><input id="f-T" value="T#3s"></div>
+        <div><label for="f-N">카운트 설정값</label><input id="f-N" value="10"></div>
+      </div>
+      <div class="btns">
+        <button class="btn" id="g-go">코드 만들기</button>
+        <button class="btn ghost" id="g-copy">복사</button>
+        <button class="btn ghost" id="g-chk">이 코드 검사하기</button>
+      </div>
+      <pre id="g-out" aria-live="polite">회로를 고르고 “코드 만들기”를 누르세요. (IEC 61131-3 구조화 텍스트 ST)</pre>
+    </div>
+
+    <div class="pane" id="p-chk">
+      <label for="c-in">검사할 ST 코드</label>
+      <textarea id="c-in" spellcheck="false" placeholder="여기에 ST 코드를 붙여 넣으세요"></textarea>
+      <div class="btns">
+        <button class="btn" id="c-go">오류 검사</button>
+        <button class="btn ghost" id="c-ex">오류 있는 예제 넣기</button>
+      </div>
+      <ul class="res" id="c-out" aria-live="polite"></ul>
+      <p class="hint">검사 항목: 블록 짝(IF·FOR·WHILE·CASE·VAR·PROGRAM), 세미콜론 누락, 선언 안 된 변수, 이중 대입, 안 쓰는 변수</p>
+    </div>
+
+    <div class="pane" id="p-hmi">
+      <div class="row">
+        <div><label for="h-type">부품</label>
+          <select id="h-type"><option value="btn">누름 버튼</option><option value="lamp">램프</option><option value="num">숫자 입력</option></select></div>
+        <div><label for="h-label">이름</label><input id="h-label" value="비상 정지"></div>
+        <div><label for="h-tag">연결 태그</label><input id="h-tag" value="STOP"></div>
+      </div>
+      <div class="btns">
+        <button class="btn" id="h-add">화면에 추가</button>
+        <button class="btn ghost" id="h-json">JSON 내보내기</button>
+      </div>
+      <div class="hmi" id="hmi" aria-label="화면 미리보기"></div>
+      <p class="hint">START·STOP·RUN 태그는 자기유지 회로로 동작합니다. 버튼을 눌러 시험해 보세요.</p>
+      <textarea id="h-out" style="min-height:90px;margin-top:10px" readonly aria-label="내보낸 JSON"></textarea>
+    </div>
+  </section>
+
+  <aside class="card chat" aria-label="AI 에이전트">
+    <h2>AI Creative Agent</h2>
+    <p id="status" role="status" aria-live="polite">채팅에 연결하는 중입니다...</p>
+    <div id="webchat"></div>
+  </aside>
+</main>
+
+<script src="https://cdn.botframework.com/botframework-webchat/4.18.0/webchat.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* 탭 */
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));
+  document.querySelectorAll(".pane").forEach(p=>p.classList.toggle("on",p.id==="p-"+b.dataset.tab));
+});
+
+/* 코드 생성 */
+const P={
+hold:f=>`PROGRAM Hold\nVAR_INPUT\n  ${f.A} : BOOL;\n  ${f.S} : BOOL;\nEND_VAR\nVAR_OUTPUT\n  ${f.Y1} : BOOL;\nEND_VAR\n\n// 자기유지 회로\n${f.Y1} := (${f.A} OR ${f.Y1}) AND NOT ${f.S};\nEND_PROGRAM`,
+inter:f=>`PROGRAM FwdRev\nVAR_INPUT\n  ${f.A} : BOOL;\n  ${f.B} : BOOL;\n  ${f.S} : BOOL;\nEND_VAR\nVAR_OUTPUT\n  ${f.Y1} : BOOL;\n  ${f.Y2} : BOOL;\nEND_VAR\n\n// 정역 운전: 반대 출력이 켜져 있으면 시작되지 않음\n${f.Y1} := (${f.A} OR ${f.Y1}) AND NOT ${f.S} AND NOT ${f.Y2};\n${f.Y2} := (${f.B} OR ${f.Y2}) AND NOT ${f.S} AND NOT ${f.Y1};\nEND_PROGRAM`,
+ton:f=>`PROGRAM Delay\nVAR_INPUT\n  ${f.A} : BOOL;\nEND_VAR\nVAR_OUTPUT\n  ${f.Y1} : BOOL;\nEND_VAR\nVAR\n  TMR : TON;\nEND_VAR\n\n// 입력이 ${f.T} 동안 유지되면 출력 ON\nTMR(IN := ${f.A}, PT := ${f.T});\n${f.Y1} := TMR.Q;\nEND_PROGRAM`,
+ctu:f=>`PROGRAM Count\nVAR_INPUT\n  ${f.A} : BOOL;\n  ${f.S} : BOOL;\nEND_VAR\nVAR_OUTPUT\n  ${f.Y1} : BOOL;\nEND_VAR\nVAR\n  CNT : CTU;\nEND_VAR\n\n// ${f.N}회 카운트하면 출력 ON, 정지 입력으로 리셋\nCNT(CU := ${f.A}, RESET := ${f.S}, PV := ${f.N});\n${f.Y1} := CNT.Q;\nEND_PROGRAM`
+};
+function gen(){
+  const f={};["A","B","S","Y1","Y2","T","N"].forEach(k=>f[k]=$("#f-"+k).value.trim()||k);
+  $("#g-out").textContent=P[$("#g-pat").value](f);
+}
+$("#g-go").onclick=gen;
+$("#g-copy").onclick=()=>navigator.clipboard&&navigator.clipboard.writeText($("#g-out").textContent).then(()=>{$("#g-copy").textContent="복사됨";setTimeout(()=>$("#g-copy").textContent="복사",1200)});
+$("#g-chk").onclick=()=>{gen();$("#c-in").value=$("#g-out").textContent;document.querySelector('[data-tab=chk]').click();check()};
+
+/* 오류 검사 */
+const KW=new Set("PROGRAM END_PROGRAM VAR VAR_INPUT VAR_OUTPUT VAR_IN_OUT VAR_GLOBAL VAR_TEMP END_VAR IF THEN ELSIF ELSE END_IF CASE OF END_CASE FOR TO BY DO END_FOR WHILE END_WHILE REPEAT UNTIL END_REPEAT EXIT RETURN AND OR XOR NOT MOD TRUE FALSE BOOL INT DINT REAL TIME WORD DWORD STRING TON TOF TP CTU CTD CTUD R_TRIG F_TRIG IN PT PV CU CD CLK RESET LOAD SET".split(" "));
+const CLOSE={IF:"END_IF",FOR:"END_FOR",WHILE:"END_WHILE",CASE:"END_CASE",PROGRAM:"END_PROGRAM",VAR:"END_VAR"};
+function lint(src){
+  const out=[],add=(lv,ln,msg)=>out.push({lv,ln,msg});
+  const clean=src.replace(/\(\*[\s\S]*?\*\)/g,m=>m.replace(/[^\n]/g,""));
+  const lines=clean.split("\n").map(l=>l.replace(/\/\/.*$/,""));
+  const stack=[],depth=[],inVar=[];let ctrl=0,vr=false;
+  lines.forEach((l,i)=>{
+    depth[i]=ctrl;inVar[i]=vr;
+    const re=/\b(END_IF|END_FOR|END_WHILE|END_CASE|END_VAR|END_PROGRAM|IF|FOR|WHILE|CASE|PROGRAM|VAR(?:_INPUT|_OUTPUT|_IN_OUT|_GLOBAL|_TEMP)?)\b/gi;let m;
+    while((m=re.exec(l))){
+      const t=m[1].toUpperCase();
+      if(t.startsWith("END_")){
+        const top=stack.pop();
+        if(!top)add("err",i+1,`짝이 없는 ${t} 입니다.`);
+        else if(CLOSE[top.k]!==t){add("err",i+1,`${top.k}(${top.ln}행)이 닫히지 않았는데 ${t} 가 나왔습니다.`)}
+        if(top&&top.k==="VAR")vr=false;
+        if(top&&/^(IF|FOR|WHILE|CASE)$/.test(top.k))ctrl--;
+      }else{
+        const k=t.startsWith("VAR")?"VAR":t;
+        stack.push({k,ln:i+1});
+        if(k==="VAR")vr=true;else if(k!=="PROGRAM")ctrl++;
+      }
     }
+  });
+  stack.forEach(s=>add("err",s.ln,`${s.k} 블록이 ${CLOSE[s.k]} 로 닫히지 않았습니다.`));
 
-    async function connect() {
-      if (!window.WebChat ||
-          typeof WebChat.createDirectLine !== "function" ||
-          typeof WebChat.renderWebChat !== "function") {
-        showError("채팅 구성 요소를 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.");
-        return;
-      }
-
-      let response;
-      try {
-        // Keep this a simple CORS request; the broker may not support preflight.
-        response = await fetch(BROKER_URL, {
-          method: "POST",
-          body: JSON.stringify({ sealed: SEALED })
-        });
-      } catch {
-        showError("서버에 연결하지 못했습니다. 네트워크와 배포 주소를 확인해 주세요.");
-        return;
-      }
-      if (!response.ok) {
-        showError("서버가 연결 요청을 처리하지 못했습니다 (HTTP " + response.status + ").");
-        return;
-      }
-
-      let data;
-      try {
-        data = await response.json();
-      } catch {
-        showError("서버 응답을 읽을 수 없습니다. 잠시 후 다시 시도해 주세요.");
-        return;
-      }
-      if (!data || typeof data.token !== "string" || !data.token.trim()) {
-        showError("서버에서 연결 토큰을 받지 못했습니다. 암호와 배포 주소를 확인해 주세요.");
-        return;
-      }
-
-      try {
-        const directLine = WebChat.createDirectLine({ token: data.token });
-        status.hidden = true;
-        directLine.postActivity({
-          type: "event", name: "startConversation", from: { id: "user" }
-        }).subscribe({
-          error: () => showError("첫 인사를 요청하지 못했습니다. 채팅창에 메시지를 입력해 주세요.")
-        });
-        WebChat.renderWebChat({ directLine, locale: "ko-KR" }, document.getElementById("webchat"));
-      } catch {
-        showError("채팅을 시작하지 못했습니다. 새로고침 후 다시 시도해 주세요.");
-      }
+  const decl={};
+  lines.forEach((l,i)=>{
+    const t=l.trim();if(!t)return;
+    if(inVar[i]&&!/^VAR|^END_VAR/i.test(t)){
+      const m=/^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:\s*[A-Za-z_]/.exec(t);
+      if(m){m[1].split(",").forEach(n=>decl[n.trim().toUpperCase()]={n:n.trim(),ln:i+1,used:0});
+        if(!/;\s*$/.test(t))add("warn",i+1,"변수 선언 끝에 ; 가 없습니다.")}
+      else add("warn",i+1,"변수 선언 형식이 올바르지 않습니다. (이름 : 타입;)");
+    }else if(!inVar[i]){
+      if(/^(IF|ELSIF|ELSE|END_|VAR|PROGRAM|CASE|FOR|WHILE|REPEAT|UNTIL)/i.test(t))return;
+      if(/(;|:|THEN|DO|OF|AND|OR|XOR|NOT|[+\-*\/(,=<>])$/i.test(t))return;
+      if(/:=/.test(t)||/^[A-Za-z_]\w*(\.\w+)?\s*\(/.test(t))add("err",i+1,"문장 끝에 ; 가 없습니다.");
     }
+  });
 
-    connect();
-  </script>
+  const assign={};
+  lines.forEach((l,i)=>{
+    if(inVar[i]||/^\s*(VAR|END_VAR|PROGRAM)/i.test(l))return;
+    const am=/^\s*([A-Za-z_]\w*)\s*:=/.exec(l);
+    if(am&&depth[i]===0){const k=am[1].toUpperCase();(assign[k]=assign[k]||[]).push(i+1)}
+    let s=l.replace(/'[^']*'/g," ").replace(/\b(T|TIME|D|DT|TOD)#[\w.:\-]+/gi," ").replace(/\.\w+/g," ")
+      .replace(/\b\d+(\.\d+)?\b/g," ").replace(/([(,]\s*)[A-Za-z_]\w*(\s*(:=|=>))/g,"$1 $3");
+    const seen=new Set();
+    (s.match(/[A-Za-z_]\w*/g)||[]).forEach(id=>{
+      const u=id.toUpperCase();if(KW.has(u)||seen.has(u))return;seen.add(u);
+      if(decl[u])decl[u].used++;
+      else add("err",i+1,`선언되지 않은 변수 “${id}” 입니다.`);
+    });
+  });
+  Object.keys(assign).forEach(k=>{if(assign[k].length>1)add("warn",assign[k][1],`“${k}”에 분기 밖에서 ${assign[k].length}번 대입했습니다. 마지막 값만 유효합니다. (이중 코일 가능성: ${assign[k].join(", ")}행)`)});
+  Object.values(decl).forEach(d=>{if(!d.used)add("info",d.ln,`“${d.n}” 변수를 선언만 하고 사용하지 않았습니다.`)});
+  return out.sort((a,b)=>a.ln-b.ln);
+}
+function check(){
+  const r=lint($("#c-in").value),L={err:"오류",warn:"주의",info:"참고"};
+  $("#c-out").innerHTML=r.length?r.map(x=>`<li class="${x.lv}"><b>${L[x.lv]}</b>${x.ln}행 · ${esc(x.msg)}</li>`).join(""):'<li class="ok"><b>통과</b>발견된 문제가 없습니다.</li>';
+}
+$("#c-go").onclick=check;
+$("#c-ex").onclick=()=>{$("#c-in").value=`PROGRAM Demo\nVAR_INPUT\n  START : BOOL;\n  STOP : BOOL;\nEND_VAR\nVAR_OUTPUT\n  MOTOR : BOOL;\nEND_VAR\nVAR\n  UNUSED : INT;\nEND_VAR\n\nIF START THEN\n  MOTOR := TRUE\n  LAMP := TRUE;\nMOTOR := NOT STOP;\nMOTOR := FALSE;\nEND_PROGRAM`;check()};
+
+/* 화면 작화 */
+let W=[{t:"btn",l:"시작",g:"START"},{t:"btn",l:"정지",g:"STOP"},{t:"lamp",l:"운전",g:"RUN"}];
+const S={START:0,STOP:0,RUN:0};
+const sim=()=>{S.RUN=((S.START||S.RUN)&&!S.STOP)?1:0};
+function draw(){
+  $("#hmi").innerHTML=W.map((w,i)=>{
+    const v=S[w.g]||0;
+    const body=w.t==="btn"?`<button class="hb${v?" on":""}" data-g="${esc(w.g)}">${esc(w.l)}</button>`
+      :w.t==="lamp"?`<div class="lamp${v?" on":""}"></div>${esc(w.l)}`
+      :`${esc(w.l)}<input class="num" type="number" value="${v}" data-n="${esc(w.g)}" aria-label="${esc(w.l)}">`;
+    return `<div class="w">${body}<small>${esc(w.g)}</small><button class="x" data-d="${i}" aria-label="삭제">×</button></div>`}).join("")||'<span style="color:#cfe">부품을 추가하세요.</span>';
+}
+const press=(g,v)=>{S[g]=v;sim();draw()};
+$("#hmi").addEventListener("pointerdown",e=>{const b=e.target.closest(".hb");if(b)press(b.dataset.g,1)});
+["pointerup","pointerleave","pointercancel"].forEach(ev=>$("#hmi").addEventListener(ev,e=>{const b=e.target.closest(".hb");if(b&&S[b.dataset.g])press(b.dataset.g,0)},true));
+$("#hmi").addEventListener("click",e=>{const d=e.target.dataset.d;if(d!==undefined){W.splice(+d,1);draw()}});
+$("#hmi").addEventListener("change",e=>{if(e.target.dataset.n){S[e.target.dataset.n]=+e.target.value;draw()}});
+$("#h-add").onclick=()=>{const g=$("#h-tag").value.trim().toUpperCase();if(!g)return;
+  W.push({t:$("#h-type").value,l:$("#h-label").value.trim()||g,g});if(!(g in S))S[g]=0;draw()};
+$("#h-json").onclick=()=>{$("#h-out").value=JSON.stringify({screen:"MAIN",widgets:W},null,2)};
+draw();
+
+/* AI 채팅 (WebChat) */
+const BROKER_URL = "https://dl-broker-juwon-4jt3z.azurewebsites.net/api/directlineToken";
+const SEALED = "P7kPKE7HGy43b-NEOESjN8HayWL69JHx4YR8mkkKfZ9bwasEC57t8ETqCBUDBSLYl7XYT_TItxOvcF-TcaK1fOLnHfBs1F3M_j1vhV51fDYRJM-BRKoCPeMDdQi1Ldh-9A6bFncp5QIhlHnCcreeDEJxlbqkxhcHrUoNAh563AQc3cD6_otDRjssnApBBRm_0b8PqTs_QQvqMK45fznBMkufCcAj6pHIxfs-hV9mTOfErXGj9JYsXNqXIQfiIiXtYFwQTMIBb5oWbN33o3-UoqygXtH_5Gf6mLcL1bd2V7bXdzOT0Qsx-uGBpQrmjhwaLZLh7GUftrTvZuLTNw6s7w7uwxsU_2chmCxWRZW0FTyQ2nuxeYOzV3h7SZlc-Cj-_isLw3N53IvtzzB_zY3EGhFxNvVUSSDm17etz_0CbDV8xYepktTZX6-6OFh-WvZlS6L5PaYMgt8ZSB-eHStPB1KnQptW-9qmSxdeNHKGCfcxkmlXwKcb_6kfvpBWIhHOzZ5tO5I7Ov5Q0C9jAHV0RdaPKvT1KItEYvjPE6wrQL-uNZ0X0_ytmrtR6DFkjXy_RDtlMY3yyNsvyfQTIB9lsC506uC9yAoWiNUa2SBw82NEckIGO2D479pO3OYrcXfE1t1Nca1JD0orw4kMU8A";
+const status = document.getElementById("status");
+
+function showError(message) {
+  status.hidden = false;
+  status.textContent = message;
+}
+
+async function connect() {
+  if (!window.WebChat ||
+      typeof WebChat.createDirectLine !== "function" ||
+      typeof WebChat.renderWebChat !== "function") {
+    showError("채팅 구성 요소를 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.");
+    return;
+  }
+
+  let response;
+  try {
+    // Keep this a simple CORS request; the broker may not support preflight.
+    response = await fetch(BROKER_URL, {
+      method: "POST",
+      body: JSON.stringify({ sealed: SEALED })
+    });
+  } catch {
+    showError("서버에 연결하지 못했습니다. 네트워크와 배포 주소를 확인해 주세요.");
+    return;
+  }
+  if (!response.ok) {
+    showError("서버가 연결 요청을 처리하지 못했습니다 (HTTP " + response.status + ").");
+    return;
+  }
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    showError("서버 응답을 읽을 수 없습니다. 잠시 후 다시 시도해 주세요.");
+    return;
+  }
+  if (!data || typeof data.token !== "string" || !data.token.trim()) {
+    showError("서버에서 연결 토큰을 받지 못했습니다. 암호와 배포 주소를 확인해 주세요.");
+    return;
+  }
+
+  try {
+    const directLine = WebChat.createDirectLine({ token: data.token });
+    status.hidden = true;
+    directLine.postActivity({
+      type: "event", name: "startConversation", from: { id: "user" }
+    }).subscribe({
+      error: () => showError("첫 인사를 요청하지 못했습니다. 채팅창에 메시지를 입력해 주세요.")
+    });
+    WebChat.renderWebChat({ directLine, locale: "ko-KR" }, document.getElementById("webchat"));
+  } catch {
+    showError("채팅을 시작하지 못했습니다. 새로고침 후 다시 시도해 주세요.");
+  }
+}
+
+connect();
+</script>
 </body>
 </html>
