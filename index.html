@@ -56,6 +56,17 @@ pre{background:var(--code);color:var(--code-ink);padding:18px;border-radius:12px
 .chat h2::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--accent)}
 #status{margin:0;padding:12px 20px;color:var(--sub);font-size:14px}
 #webchat{flex:1;min-height:0}
+#bar{flex:none;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--soft);display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+#bar[hidden]{display:none}
+#files{display:flex;flex-wrap:wrap;gap:8px}
+.fchip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px 10px 4px 4px;font-size:13px;max-width:100%}
+.fchip:not(:has(img)){padding-left:10px}
+.fchip img{width:44px;height:44px;object-fit:cover;border-radius:7px}
+.fchip span{overflow-wrap:anywhere}
+#timer{font-size:14px;font-weight:600;margin-left:auto}
+#timer.run{color:var(--amber)}#timer.done{color:var(--accent-d)}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:20;max-width:92vw;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
 </style>
 </head>
 <body>
@@ -132,10 +143,12 @@ pre{background:var(--code);color:var(--code-ink);padding:18px;border-radius:12px
   <aside class="card chat" aria-label="AI 에이전트">
     <h2>AI Creative Agent</h2>
     <p id="status" role="status" aria-live="polite">채팅에 연결하는 중입니다...</p>
+    <div id="bar" hidden aria-live="polite"><div id="files"></div><div id="timer"></div></div>
     <div id="webchat"></div>
   </aside>
 </main>
 
+<div id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.botframework.com/botframework-webchat/4.18.0/webchat.js"></script>
 <script>
 const $=s=>document.querySelector(s);
@@ -233,7 +246,8 @@ $("#c-ex").onclick=()=>{$("#c-in").value=`PROGRAM Demo\nVAR_INPUT\n  START : BOO
 /* 화면 작화 */
 let W=[{t:"btn",l:"시작",g:"START"},{t:"btn",l:"정지",g:"STOP"},{t:"lamp",l:"운전",g:"RUN"}];
 const S={START:0,STOP:0,RUN:0};
-const sim=()=>{S.RUN=((S.START||S.RUN)&&!S.STOP)?1:0};
+let PROG=null;
+const sim=()=>{if(PROG){for(let i=0;i<5;i++)PROG(S)}else S.RUN=((S.START||S.RUN)&&!S.STOP)?1:0};
 function draw(){
   $("#hmi").innerHTML=W.map((w,i)=>{
     const v=S[w.g]||0;
@@ -251,6 +265,87 @@ $("#h-add").onclick=()=>{const g=$("#h-tag").value.trim().toUpperCase();if(!g)re
   W.push({t:$("#h-type").value,l:$("#h-label").value.trim()||g,g});if(!(g in S))S[g]=0;draw()};
 $("#h-json").onclick=()=>{$("#h-out").value=JSON.stringify({screen:"MAIN",widgets:W},null,2)};
 draw();
+
+/* 채팅 → 코드 생성 · 오류 검사 · 화면 작화 자동 연동 */
+const strip=c=>c.replace(/\(\*[\s\S]*?\*\)/g,"").replace(/\/\/.*$/gm,"");
+let tt;function toast(m){const e=$("#toast");e.textContent=m;e.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>e.classList.remove("on"),4500)}
+function extractST(t){
+  const f=/```[^\n]*\n([\s\S]*?)```/g;let m,best="";
+  while((m=f.exec(t))){if(/\b(PROGRAM|VAR)\b/i.test(m[1])&&m[1].length>best.length)best=m[1]}
+  if(!best){const r=/PROGRAM[\s\S]*?END_PROGRAM/i.exec(t);if(r)best=r[0]}
+  return best.trim();
+}
+function hmiFrom(code){
+  const ins=[],outs=[];let sec=null;
+  strip(code).split("\n").forEach(l=>{
+    const t=l.trim(),s=/^VAR(_INPUT|_OUTPUT)?\b/i.exec(t);
+    if(s){sec=(s[1]||"").toUpperCase();return}
+    if(/^END_VAR/i.test(t)){sec=null;return}
+    const m=sec!==null&&/^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:\s*BOOL/i.exec(t);
+    if(m)m[1].split(",").forEach(n=>{n=n.trim().toUpperCase();if(sec==="_INPUT")ins.push(n);else if(sec==="_OUTPUT")outs.push(n)});
+  });
+  return [...ins.map(g=>({t:"btn",l:g,g})),...outs.map(g=>({t:"lamp",l:g,g}))];
+}
+function compile(code){
+  const body=strip(code).replace(/VAR[\s\S]*?END_VAR/gi,"").replace(/\b(END_)?PROGRAM\b\s*\w*/gi,"");
+  if(/\b(IF|CASE|FOR|WHILE|REPEAT)\b/i.test(body))return null;
+  const st=[],re=/([A-Za-z_]\w*)\s*:=\s*([^;]+);/g;let m;
+  while((m=re.exec(body))){
+    let e=m[2].replace(/\bAND\b/gi,"&&").replace(/\bOR\b/gi,"||").replace(/\bXOR\b/gi,"!=").replace(/\bNOT\b/gi,"!").replace(/\bTRUE\b/gi,"true").replace(/\bFALSE\b/gi,"false");
+    if(!/^[\w\s()!&|=]+$/.test(e))return null;
+    e=e.replace(/[A-Za-z_]\w*/g,id=>/^(true|false)$/.test(id)?id:`!!S["${id.toUpperCase()}"]`);
+    st.push(`S["${m[1].toUpperCase()}"]=(${e})?1:0;`);
+  }
+  try{return st.length?new Function("S",st.join("")):null}catch{return null}
+}
+function applyFromChat(text){
+  const code=extractST(text);if(!code)return;
+  $("#g-out").textContent=code;
+  $("#c-in").value=code;check();
+  const w=hmiFrom(code);
+  if(w.length){W=w;Object.keys(S).forEach(k=>delete S[k]);w.forEach(x=>S[x.g]=0);PROG=compile(code);draw()}
+  document.querySelector("[data-tab=gen]").click();
+  const n=lint(code).filter(x=>x.lv==="err").length;
+  toast("AI 코드를 불러왔어요 · 오류 "+n+"건"+(w.length?" · 화면 부품 "+w.length+"개":""));
+}
+
+/* 첨부 파일 미리보기 · 응답 시간 */
+let t0=0,tick=null;
+const fmt=ms=>(ms/1000).toFixed(1)+"초";
+function startTimer(){
+  clearInterval(tick);t0=performance.now();
+  $("#bar").hidden=false;
+  const tm=$("#timer");tm.className="run";
+  const upd=()=>{tm.textContent="⏱ AI 답변 대기 중 · "+fmt(performance.now()-t0)};
+  upd();tick=setInterval(upd,100);
+}
+function stopTimer(){
+  if(!t0)return;
+  clearInterval(tick);
+  const tm=$("#timer");tm.className="done";
+  tm.textContent="✅ 답변 완료 · "+fmt(performance.now()-t0)+" 걸림";t0=0;
+}
+function showFiles(files){
+  const box=$("#files");box.innerHTML="";
+  files.forEach(f=>{
+    const url=f.url||(f instanceof Blob?URL.createObjectURL(f):"");
+    const name=f.name||"파일",kb=f.size?Math.max(1,Math.round(f.size/1024))+"KB":"";
+    const d=document.createElement("div");d.className="fchip";
+    if(/\.(png|jpe?g|gif|webp|bmp)$/i.test(name)&&url){const i=document.createElement("img");i.src=url;i.alt="";d.appendChild(i)}
+    const s=document.createElement("span");s.textContent="첨부: "+name+(kb?" · "+kb:"");d.appendChild(s);
+    box.appendChild(d);
+  });
+  $("#bar").hidden=false;
+}
+function makeStore(){
+  return WebChat.createStore({},()=>next=>action=>{
+    try{
+      if(action.type==="WEB_CHAT/SEND_FILES"){showFiles(action.payload.files||[]);startTimer()}
+      else if(action.type==="WEB_CHAT/SEND_MESSAGE"){startTimer()}
+    }catch(e){}
+    return next(action);
+  });
+}
 
 /* AI 채팅 (WebChat) */
 const BROKER_URL = "https://dl-broker-juwon-4jt3z.azurewebsites.net/api/directlineToken";
@@ -300,13 +395,22 @@ async function connect() {
 
   try {
     const directLine = WebChat.createDirectLine({ token: data.token });
+    directLine.activity$.subscribe(a => {
+      if (a.type === "message" && a.from && a.from.role === "bot") stopTimer();
+    });
+    const seen = new Set();
+    directLine.activity$.subscribe(a => {
+      if (a.type !== "message" || !a.text || !a.from || a.from.role !== "bot" || seen.has(a.id)) return;
+      seen.add(a.id);
+      try { applyFromChat(a.text); } catch (e) {}
+    });
     status.hidden = true;
     directLine.postActivity({
       type: "event", name: "startConversation", from: { id: "user" }
     }).subscribe({
       error: () => showError("첫 인사를 요청하지 못했습니다. 채팅창에 메시지를 입력해 주세요.")
     });
-    WebChat.renderWebChat({ directLine, locale: "ko-KR" }, document.getElementById("webchat"));
+    WebChat.renderWebChat({ directLine, store: makeStore(), locale: "ko-KR" }, document.getElementById("webchat"));
   } catch {
     showError("채팅을 시작하지 못했습니다. 새로고침 후 다시 시도해 주세요.");
   }
