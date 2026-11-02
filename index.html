@@ -50,11 +50,12 @@ pre{background:var(--code);color:var(--code-ink);padding:18px;border-radius:12px
 .lamp.on{background:#4fd68a;border-color:#2aa062;box-shadow:0 0 16px #4fd68a}
 .num{width:90px;text-align:center;margin-top:6px;background:#fff;color:#25312f}
 .hint{font-size:13.5px;color:var(--sub);margin:12px 0 0}
-.chat{position:sticky;top:16px}
+.chat{position:sticky;top:16px;display:flex;flex-direction:column;height:calc(100vh - 32px);height:calc(100dvh - 32px);min-height:420px;max-height:780px}
+@media(max-width:980px){.chat{position:static;height:75vh;height:75dvh;min-height:440px}}
 .chat h2{font-size:16px;margin:0;padding:16px 20px;border-bottom:1px solid var(--line);background:var(--soft);display:flex;align-items:center;gap:8px}
 .chat h2::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--accent)}
 #status{margin:0;padding:12px 20px;color:var(--sub);font-size:14px}
-#webchat{height:560px}
+#webchat{flex:1;min-height:0}
 </style>
 </head>
 <body>
