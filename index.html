@@ -269,10 +269,24 @@ draw();
 /* 채팅 → 코드 생성 · 오류 검사 · 화면 작화 자동 연동 */
 const strip=c=>c.replace(/\(\*[\s\S]*?\*\)/g,"").replace(/\/\/.*$/gm,"");
 let tt;function toast(m){const e=$("#toast");e.textContent=m;e.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>e.classList.remove("on"),4500)}
+function textOf(a){
+  let t=a.text||"";
+  (a.attachments||[]).forEach(x=>{
+    const c=x.content;
+    if(typeof c==="string")t+="\n"+c;
+    else if(c)t+="\n"+JSON.stringify(c).replace(/\\n/g,"\n").replace(/\\"/g,'"');
+  });
+  return t;
+}
 function extractST(t){
   const f=/```[^\n]*\n([\s\S]*?)```/g;let m,best="";
-  while((m=f.exec(t))){if(/\b(PROGRAM|VAR)\b/i.test(m[1])&&m[1].length>best.length)best=m[1]}
+  while((m=f.exec(t))){if(/(:=|\bPROGRAM\b|\bVAR\b)/i.test(m[1])&&m[1].length>best.length)best=m[1]}
   if(!best){const r=/PROGRAM[\s\S]*?END_PROGRAM/i.exec(t);if(r)best=r[0]}
+  if(!best){
+    const ls=t.split("\n"),ix=[];
+    ls.forEach((l,i)=>{if(/(:=.*;|^\s*(VAR|END_VAR|END_IF|IF\b)|:\s*BOOL)/i.test(l))ix.push(i)});
+    if(ix.filter(i=>/:=/.test(ls[i])).length>=1&&ix.length>=2)best=ls.slice(ix[0],ix[ix.length-1]+1).join("\n");
+  }
   return best.trim();
 }
 function hmiFrom(code){
@@ -284,6 +298,11 @@ function hmiFrom(code){
     const m=sec!==null&&/^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:\s*BOOL/i.exec(t);
     if(m)m[1].split(",").forEach(n=>{n=n.trim().toUpperCase();if(sec==="_INPUT")ins.push(n);else if(sec==="_OUTPUT")outs.push(n)});
   });
+  if(!ins.length&&!outs.length){
+    const L=new Set(),R=new Set(),re=/([A-Za-z_]\w*)\s*:=\s*([^;]+);/g,b=strip(code);let m;
+    while((m=re.exec(b))){L.add(m[1].toUpperCase());(m[2].match(/\b[A-Za-z_]\w*\b/g)||[]).forEach(id=>{id=id.toUpperCase();if(!KW.has(id))R.add(id)})}
+    R.forEach(g=>{if(!L.has(g))ins.push(g)});L.forEach(g=>outs.push(g));
+  }
   return [...ins.map(g=>({t:"btn",l:g,g})),...outs.map(g=>({t:"lamp",l:g,g}))];
 }
 function compile(code){
@@ -337,12 +356,27 @@ function showFiles(files){
   });
   $("#bar").hidden=false;
 }
+let myId=null;const seenIds=new Set();
+function onIncoming(a){
+  if(!a||a.type!=="message"||!a.from||a.from.role==="user"||(myId&&a.from.id===myId))return;
+  const t=textOf(a);
+  if(!t.trim()&&!(a.attachments&&a.attachments.length))return;
+  stopTimer();
+  if(a.id&&seenIds.has(a.id))return;if(a.id)seenIds.add(a.id);
+  try{applyFromChat(t)}catch(e){console.error(e)}
+}
 function makeStore(){
   return WebChat.createStore({},()=>next=>action=>{
     try{
-      if(action.type==="WEB_CHAT/SEND_FILES"){showFiles(action.payload.files||[]);startTimer()}
-      else if(action.type==="WEB_CHAT/SEND_MESSAGE"){startTimer()}
-    }catch(e){}
+      const ty=action.type;
+      if(ty==="WEB_CHAT/SEND_FILES"){showFiles(action.payload.files||[]);startTimer()}
+      else if(ty==="WEB_CHAT/SEND_MESSAGE")startTimer();
+      else if(ty==="DIRECT_LINE/POST_ACTIVITY"){
+        const a=action.payload&&action.payload.activity;
+        if(a&&a.type==="message"){if(a.from&&a.from.id)myId=a.from.id;startTimer()}
+      }
+      else if(ty==="DIRECT_LINE/INCOMING_ACTIVITY")onIncoming(action.payload&&action.payload.activity);
+    }catch(e){console.error(e)}
     return next(action);
   });
 }
@@ -395,15 +429,6 @@ async function connect() {
 
   try {
     const directLine = WebChat.createDirectLine({ token: data.token });
-    directLine.activity$.subscribe(a => {
-      if (a.type === "message" && a.from && a.from.role === "bot") stopTimer();
-    });
-    const seen = new Set();
-    directLine.activity$.subscribe(a => {
-      if (a.type !== "message" || !a.text || !a.from || a.from.role !== "bot" || seen.has(a.id)) return;
-      seen.add(a.id);
-      try { applyFromChat(a.text); } catch (e) {}
-    });
     status.hidden = true;
     directLine.postActivity({
       type: "event", name: "startConversation", from: { id: "user" }
