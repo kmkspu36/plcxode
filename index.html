@@ -96,7 +96,6 @@ pre{background:var(--code);color:var(--code-ink);padding:18px;border-radius:12px
 
     <div class="pane on" id="p-gen">
       <div class="row">
-        <div><label for="g-mode">작성 방식</label><select id="g-mode"><option value="gx">GX Works2 (명령어 리스트)</option><option value="st">IEC ST (구조화 텍스트)</option></select></div>
         <div><label for="g-pat">회로 종류</label>
           <select id="g-pat">
             <option value="hold">자기유지 (시작/정지)</option>
@@ -106,13 +105,13 @@ pre{background:var(--code);color:var(--code-ink);padding:18px;border-radius:12px
           </select></div>
       </div>
       <div class="row">
-        <div><label for="f-A">시작 입력</label><input id="f-A" value="START"></div>
-        <div><label for="f-B">역방향 시작</label><input id="f-B" value="START_REV"></div>
-        <div><label for="f-S">정지 입력</label><input id="f-S" value="STOP"></div>
-        <div><label for="f-Y1">출력</label><input id="f-Y1" value="MOTOR_FWD"></div>
-        <div><label for="f-Y2">반대 출력</label><input id="f-Y2" value="MOTOR_REV"></div>
-        <div><label for="f-T">타이머 시간</label><input id="f-T" value="T#3s"></div>
-        <div><label for="f-N">카운트 설정값</label><input id="f-N" value="10"></div>
+        <div><label for="f-A">시작 입력</label><input id="f-A" value="X0"></div>
+        <div><label for="f-B">역방향 시작</label><input id="f-B" value="X1"></div>
+        <div><label for="f-S">정지 입력</label><input id="f-S" value="X2"></div>
+        <div><label for="f-Y1">출력</label><input id="f-Y1" value="Y0"></div>
+        <div><label for="f-Y2">반대 출력</label><input id="f-Y2" value="Y1"></div>
+        <div><label for="f-T">타이머 시간</label><input id="f-T" value="K30"></div>
+        <div><label for="f-N">카운트 설정값</label><input id="f-N" value="K10"></div>
       </div>
       <div class="btns">
         <button class="btn" id="g-go">코드 만들기</button>
@@ -125,10 +124,6 @@ pre{background:var(--code);color:var(--code-ink);padding:18px;border-radius:12px
     </div>
 
     <div class="pane" id="p-chk">
-      <div class="seg" id="c-seg" role="group" aria-label="검사 방식">
-        <button data-m="gx" aria-pressed="true">GX Works2</button>
-        <button data-m="st" aria-pressed="false">ST</button>
-      </div>
       <label for="c-in" id="c-lab">검사할 GX Works2 명령어</label>
       <textarea id="c-in" spellcheck="false" placeholder="LD X0&#10;OR Y0&#10;ANI X1&#10;OUT Y0&#10;END"></textarea>
       <div class="btns">
@@ -137,7 +132,6 @@ pre{background:var(--code);color:var(--code-ink);padding:18px;border-radius:12px
       </div>
       <ul class="res" id="c-out" aria-live="polite"></ul>
       <p class="hint" id="c-hint-gx">검사 항목: END 누락, 모르는 명령어, 디바이스 이름, 입력(X)에 출력, 타이머·카운터 설정값(K) 누락과 번호 중복, 이중 코일, ANB/ORB·MPS/MPP 짝, 읽기만 하는 M.</p>
-      <p class="hint" id="c-hint-st" hidden>검사 항목: 블록 짝(IF·FOR·WHILE·CASE·VAR·PROGRAM), 세미콜론 누락, 선언 안 된 변수, 이중 대입, 안 쓰는 변수.</p>
     </div>
 
     <div class="pane" id="p-hmi">
@@ -145,7 +139,7 @@ pre{background:var(--code);color:var(--code-ink);padding:18px;border-radius:12px
         <div><label for="h-type">부품</label>
           <select id="h-type"><option value="btn">누름 버튼</option><option value="lamp">램프</option><option value="num">숫자 입력</option></select></div>
         <div><label for="h-label">이름</label><input id="h-label" value="비상 정지"></div>
-        <div><label for="h-tag">연결 태그</label><input id="h-tag" value="STOP"></div>
+        <div><label for="h-tag">연결 태그</label><input id="h-tag" value="X3"></div>
       </div>
       <div class="btns">
         <button class="btn" id="h-add">화면에 추가</button>
@@ -184,12 +178,6 @@ document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
 });
 
 /* 코드 생성 */
-const P={
-hold:f=>`PROGRAM Hold\nVAR_INPUT\n  ${f.A} : BOOL;\n  ${f.S} : BOOL;\nEND_VAR\nVAR_OUTPUT\n  ${f.Y1} : BOOL;\nEND_VAR\n\n// 자기유지 회로\n${f.Y1} := (${f.A} OR ${f.Y1}) AND NOT ${f.S};\nEND_PROGRAM`,
-inter:f=>`PROGRAM FwdRev\nVAR_INPUT\n  ${f.A} : BOOL;\n  ${f.B} : BOOL;\n  ${f.S} : BOOL;\nEND_VAR\nVAR_OUTPUT\n  ${f.Y1} : BOOL;\n  ${f.Y2} : BOOL;\nEND_VAR\n\n// 정역 운전: 반대 출력이 켜져 있으면 시작되지 않음\n${f.Y1} := (${f.A} OR ${f.Y1}) AND NOT ${f.S} AND NOT ${f.Y2};\n${f.Y2} := (${f.B} OR ${f.Y2}) AND NOT ${f.S} AND NOT ${f.Y1};\nEND_PROGRAM`,
-ton:f=>`PROGRAM Delay\nVAR_INPUT\n  ${f.A} : BOOL;\nEND_VAR\nVAR_OUTPUT\n  ${f.Y1} : BOOL;\nEND_VAR\nVAR\n  TMR : TON;\nEND_VAR\n\n// 입력이 ${f.T} 동안 유지되면 출력 ON\nTMR(IN := ${f.A}, PT := ${f.T});\n${f.Y1} := TMR.Q;\nEND_PROGRAM`,
-ctu:f=>`PROGRAM Count\nVAR_INPUT\n  ${f.A} : BOOL;\n  ${f.S} : BOOL;\nEND_VAR\nVAR_OUTPUT\n  ${f.Y1} : BOOL;\nEND_VAR\nVAR\n  CNT : CTU;\nEND_VAR\n\n// ${f.N}회 카운트하면 출력 ON, 정지 입력으로 리셋\nCNT(CU := ${f.A}, RESET := ${f.S}, PV := ${f.N});\n${f.Y1} := CNT.Q;\nEND_PROGRAM`
-};
 const GX={
 hold:f=>`LD ${f.A}\nOR ${f.Y1}\nANI ${f.S}\nOUT ${f.Y1}\nEND`,
 inter:f=>`LD ${f.A}\nOR ${f.Y1}\nANI ${f.S}\nANI ${f.Y2}\nOUT ${f.Y1}\nLD ${f.B}\nOR ${f.Y2}\nANI ${f.S}\nANI ${f.Y1}\nOUT ${f.Y2}\nEND`,
@@ -202,82 +190,18 @@ inter:f=>`${f.A}은 정방향(${f.Y1}), ${f.B}는 역방향(${f.Y2}) 시작입�
 ton:f=>`${f.A}이 켜진 채 ${(parseInt(String(f.T).replace(/\D/g,""),10)||0)/10}초가 지나면 ${f.Y1}이 켜집니다. (T0는 100ms 단위라 K30 = 3초)`,
 ctu:f=>`${f.A}을 ${String(f.N).replace(/\D/g,"")}번 누르면 ${f.Y1}이 켜지고, ${f.S}을 누르면 카운터 C0가 리셋됩니다.`
 };
-const DEF={gx:{A:"X0",B:"X1",S:"X2",Y1:"Y0",Y2:"Y1",T:"K30",N:"K10"},st:{A:"START",B:"START_REV",S:"STOP",Y1:"MOTOR_FWD",Y2:"MOTOR_REV",T:"T#3s",N:"10"}};
-function setMode(){const d=DEF[$("#g-mode").value];for(const k in d)$("#f-"+k).value=d[k]}
 function gen(){
   const f={};["A","B","S","Y1","Y2","T","N"].forEach(k=>f[k]=$("#f-"+k).value.trim()||k);
-  const gx=$("#g-mode").value==="gx",p=$("#g-pat").value;
-  $("#g-out").textContent=(gx?GX:P)[p](f);
-  $("#g-note").textContent=gx?NOTE[p](f):"IEC 61131-3 구조화 텍스트(ST) 형식입니다.";
+  const p=$("#g-pat").value;
+  $("#g-out").textContent=GX[p](f);
+  $("#g-note").textContent=NOTE[p](f);
 }
-$("#g-mode").onchange=()=>{setMode();gen()};
 $("#g-pat").onchange=gen;
-setMode();gen();
+gen();
 $("#g-go").onclick=gen;
 $("#g-copy").onclick=()=>navigator.clipboard&&navigator.clipboard.writeText($("#g-out").textContent).then(()=>{$("#g-copy").textContent="복사됨";setTimeout(()=>$("#g-copy").textContent="복사",1200)});
-$("#g-chk").onclick=()=>{gen();setCM(isIL($("#g-out").textContent)?"gx":"st");$("#c-in").value=$("#g-out").textContent;document.querySelector('[data-tab=chk]').click();check()};
+$("#g-chk").onclick=()=>{gen();$("#c-in").value=$("#g-out").textContent;document.querySelector('[data-tab=chk]').click();check()};
 
-/* 오류 검사 */
-const KW=new Set("PROGRAM END_PROGRAM VAR VAR_INPUT VAR_OUTPUT VAR_IN_OUT VAR_GLOBAL VAR_TEMP END_VAR IF THEN ELSIF ELSE END_IF CASE OF END_CASE FOR TO BY DO END_FOR WHILE END_WHILE REPEAT UNTIL END_REPEAT EXIT RETURN AND OR XOR NOT MOD TRUE FALSE BOOL INT DINT REAL TIME WORD DWORD STRING TON TOF TP CTU CTD CTUD R_TRIG F_TRIG IN PT PV CU CD CLK RESET LOAD SET".split(" "));
-const CLOSE={IF:"END_IF",FOR:"END_FOR",WHILE:"END_WHILE",CASE:"END_CASE",PROGRAM:"END_PROGRAM",VAR:"END_VAR"};
-function lint(src){
-  const out=[],add=(lv,ln,msg)=>out.push({lv,ln,msg});
-  const clean=src.replace(/\(\*[\s\S]*?\*\)/g,m=>m.replace(/[^\n]/g,""));
-  const lines=clean.split("\n").map(l=>l.replace(/\/\/.*$/,""));
-  const stack=[],depth=[],inVar=[];let ctrl=0,vr=false;
-  lines.forEach((l,i)=>{
-    depth[i]=ctrl;inVar[i]=vr;
-    const re=/\b(END_IF|END_FOR|END_WHILE|END_CASE|END_VAR|END_PROGRAM|IF|FOR|WHILE|CASE|PROGRAM|VAR(?:_INPUT|_OUTPUT|_IN_OUT|_GLOBAL|_TEMP)?)\b/gi;let m;
-    while((m=re.exec(l))){
-      const t=m[1].toUpperCase();
-      if(t.startsWith("END_")){
-        const top=stack.pop();
-        if(!top)add("err",i+1,`짝이 없는 ${t} 입니다.`);
-        else if(CLOSE[top.k]!==t){add("err",i+1,`${top.k}(${top.ln}행)이 닫히지 않았는데 ${t} 가 나왔습니다.`)}
-        if(top&&top.k==="VAR")vr=false;
-        if(top&&/^(IF|FOR|WHILE|CASE)$/.test(top.k))ctrl--;
-      }else{
-        const k=t.startsWith("VAR")?"VAR":t;
-        stack.push({k,ln:i+1});
-        if(k==="VAR")vr=true;else if(k!=="PROGRAM")ctrl++;
-      }
-    }
-  });
-  stack.forEach(s=>add("err",s.ln,`${s.k} 블록이 ${CLOSE[s.k]} 로 닫히지 않았습니다.`));
-
-  const decl={};
-  lines.forEach((l,i)=>{
-    const t=l.trim();if(!t)return;
-    if(inVar[i]&&!/^VAR|^END_VAR/i.test(t)){
-      const m=/^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:\s*[A-Za-z_]/.exec(t);
-      if(m){m[1].split(",").forEach(n=>decl[n.trim().toUpperCase()]={n:n.trim(),ln:i+1,used:0});
-        if(!/;\s*$/.test(t))add("warn",i+1,"변수 선언 끝에 ; 가 없습니다.")}
-      else add("warn",i+1,"변수 선언 형식이 올바르지 않습니다. (이름 : 타입;)");
-    }else if(!inVar[i]){
-      if(/^(IF|ELSIF|ELSE|END_|VAR|PROGRAM|CASE|FOR|WHILE|REPEAT|UNTIL)/i.test(t))return;
-      if(/(;|:|THEN|DO|OF|AND|OR|XOR|NOT|[+\-*\/(,=<>])$/i.test(t))return;
-      if(/:=/.test(t)||/^[A-Za-z_]\w*(\.\w+)?\s*\(/.test(t))add("err",i+1,"문장 끝에 ; 가 없습니다.");
-    }
-  });
-
-  const assign={};
-  lines.forEach((l,i)=>{
-    if(inVar[i]||/^\s*(VAR|END_VAR|PROGRAM)/i.test(l))return;
-    const am=/^\s*([A-Za-z_]\w*)\s*:=/.exec(l);
-    if(am&&depth[i]===0){const k=am[1].toUpperCase();(assign[k]=assign[k]||[]).push(i+1)}
-    let s=l.replace(/'[^']*'/g," ").replace(/\b(T|TIME|D|DT|TOD)#[\w.:\-]+/gi," ").replace(/\.\w+/g," ")
-      .replace(/\b\d+(\.\d+)?\b/g," ").replace(/([(,]\s*)[A-Za-z_]\w*(\s*(:=|=>))/g,"$1 $3");
-    const seen=new Set();
-    (s.match(/[A-Za-z_]\w*/g)||[]).forEach(id=>{
-      const u=id.toUpperCase();if(KW.has(u)||seen.has(u))return;seen.add(u);
-      if(decl[u])decl[u].used++;
-      else add("err",i+1,`선언되지 않은 변수 “${id}” 입니다.`);
-    });
-  });
-  Object.keys(assign).forEach(k=>{if(assign[k].length>1)add("warn",assign[k][1],`“${k}”에 분기 밖에서 ${assign[k].length}번 대입했습니다. 마지막 값만 유효합니다. (이중 코일 가능성: ${assign[k].join(", ")}행)`)});
-  Object.values(decl).forEach(d=>{if(!d.used)add("info",d.ln,`“${d.n}” 변수를 선언만 하고 사용하지 않았습니다.`)});
-  return out.sort((a,b)=>a.ln-b.ln);
-}
 /* GX Works2 명령어(리스트) */
 const isIL=s=>/^\s*(\d+\s+)?(LD|LDI|LDP|LDF)\s+[XYMTCSBFD]\d/im.test(s)||(!/:=/.test(s)&&/^\s*(\d+\s+)?OUT\s+[XYMTC]\d/im.test(s));
 function ilParse(src){
@@ -326,7 +250,7 @@ function lintIL(src){
   reads.forEach(r=>{if(/^M/.test(r[0])&&!driven.has(r[0]))add("warn",r[1],`“${r[0]}” 를 읽기만 하고 켜는 곳(OUT/SET)이 없습니다.`)});
   return out.sort((a,b)=>a.ln-b.ln);
 }
-const lintAny=src=>isIL(src)?lintIL(src):lint(src);
+const lintAny=src=>lintIL(src);
 function compileIL(code){
   const ps=ilParse(code),TS={};
   if(!ps.length||ps.some(p=>!/^(LD|LDI|AND|ANI|OR|ORI|ANB|ORB|MPS|MRD|MPP|INV|OUT|SET|RST|END)$/.test(p.op)))return null;
@@ -369,46 +293,28 @@ function loadHmi(code){
 $("#g-hmi").onclick=()=>{const n=loadHmi($("#g-out").textContent);document.querySelector("[data-tab=hmi]").click();toast(n?"화면 부품 "+n+"개를 만들었어요":"화면 부품을 만들 수 없는 코드예요")};
 setInterval(()=>{if(PROG&&PROG.timed){const b=JSON.stringify(S);sim(100);if(JSON.stringify(S)!==b)draw()}},100);
 
-let CM="gx";const CODE={gx:"",st:""};
-function setCM(m){
-  if(m===CM)return;
-  CODE[CM]=$("#c-in").value;CM=m;$("#c-in").value=CODE[m];
-  document.querySelectorAll("#c-seg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.m===m));
-  $("#c-lab").textContent=m==="gx"?"검사할 GX Works2 명령어":"검사할 ST 코드";
-  $("#c-in").placeholder=m==="gx"?"LD X0\nOR Y0\nANI X1\nOUT Y0\nEND":"PROGRAM Demo\nVAR_INPUT\n  START : BOOL;\nEND_VAR";
-  $("#c-hint-gx").hidden=m!=="gx";$("#c-hint-st").hidden=m!=="st";
-  check();
-}
-document.querySelectorAll("#c-seg button").forEach(b=>b.onclick=()=>setCM(b.dataset.m));
 function check(){
   const src=$("#c-in").value,L={err:"오류",warn:"주의",info:"참고"};
   if(!src.trim()){$("#c-out").innerHTML="";return}
-  const r=CM==="gx"?lintIL(src):lint(src);
-  const other=CM==="gx"?(!isIL(src)&&/:=|\bPROGRAM\b/i.test(src)):isIL(src);
-  if(other)r.unshift({lv:"warn",ln:1,msg:CM==="gx"?"ST 코드처럼 보입니다. 위에서 ‘ST’ 검사를 선택해 보세요.":"GX Works2 명령어처럼 보입니다. 위에서 ‘GX Works2’ 검사를 선택해 보세요."});
+  const r=lintIL(src);
+  if(!isIL(src)&&/:=|\bPROGRAM\b/i.test(src))r.unshift({lv:"warn",ln:1,msg:"ST 코드처럼 보입니다. 이 도구는 GX Works2 명령어(LD, OUT, END 등)만 검사합니다."});
   $("#c-out").innerHTML=r.length?r.map(x=>`<li class="${x.lv}"><b>${L[x.lv]}</b>${x.ln}행 · ${esc(x.msg)}</li>`).join(""):'<li class="ok"><b>통과</b>발견된 문제가 없습니다.</li>';
 }
 $("#c-go").onclick=check;
-const EX={
-gx:[
+const EX=[
 `LD X0\nOR Y0\nANI X2\nOUT Y0\nLD X1\nOUT X3\nLD M5\nOUT T0\nLD T0\nOUT Y0`,
 `LD X0\nOR Y0\nANB\nOUTT Y0\nLD X1\nOUT Y1`,
 `LD X0\nOUT T0 K30\nLD X1\nOUT T0 K50\nLD X2\nOUT C0\nLD C0\nOUT Y0\nEND`,
 `LD X0\nMPS\nAND X1\nOUT Y0\nLD Q5\nOUT Y1\nEND\nOUT Y2`
-],
-st:[
-`PROGRAM Demo\nVAR_INPUT\n  START : BOOL;\n  STOP : BOOL;\nEND_VAR\nVAR_OUTPUT\n  MOTOR : BOOL;\nEND_VAR\nVAR\n  UNUSED : INT;\nEND_VAR\n\nIF START THEN\n  MOTOR := TRUE\n  LAMP := TRUE;\nMOTOR := NOT STOP;\nMOTOR := FALSE;\nEND_PROGRAM`,
-`PROGRAM Test\nVAR_INPUT\n  A : BOOL\nEND_VAR\nVAR_OUTPUT\n  Y : BOOL;\nEND_VAR\n\nY := A AND B;\nEND_IF;\nEND_PROGRAM`,
-`PROGRAM Hold\nVAR_INPUT\n  START : BOOL;\n  STOP : BOOL;\nEND_VAR\nVAR_OUTPUT\n  MOTOR : BOOL;\nEND_VAR\n\nIF START THEN\n  MOTOR := TRUE;\nEND_WHILE;\nEND_PROGRAM`
-]};
-const exIdx={gx:0,st:0};
-$("#c-ex").onclick=()=>{const m=CM,L=EX[m],i=exIdx[m]%L.length;exIdx[m]++;$("#c-in").value=L[i];check();toast("오류 예제 "+(i+1)+" / "+L.length)};
+];
+let exIdx=0;
+$("#c-ex").onclick=()=>{const i=exIdx%EX.length;exIdx++;$("#c-in").value=EX[i];check();toast("오류 예제 "+(i+1)+" / "+EX.length)};
 
 /* 화면 작화 */
-let W=[{t:"btn",l:"시작",g:"START"},{t:"btn",l:"정지",g:"STOP"},{t:"lamp",l:"운전",g:"RUN"}];
-const S={START:0,STOP:0,RUN:0};
-let PROG=null;
-const sim=(dt=0)=>{if(PROG){for(let i=0;i<(PROG.il?1:5);i++)PROG(S,dt)}else S.RUN=((S.START||S.RUN)&&!S.STOP)?1:0};
+let W=[{t:"btn",l:"시작",g:"X0"},{t:"btn",l:"정지",g:"X1"},{t:"lamp",l:"운전",g:"Y0"}];
+const S={X0:0,X1:0,Y0:0};
+let PROG=compileIL("LD X0\nOR Y0\nANI X1\nOUT Y0\nEND");
+const sim=(dt=0)=>{if(PROG)PROG(S,dt)};
 function draw(){
   $("#hmi").innerHTML=W.map((w,i)=>{
     const v=S[w.g]||0;
@@ -428,7 +334,6 @@ $("#h-json").onclick=()=>{$("#h-out").value=JSON.stringify({screen:"MAIN",widget
 draw();
 
 /* 채팅 → 코드 생성 · 오류 검사 · 화면 작화 자동 연동 */
-const strip=c=>c.replace(/\(\*[\s\S]*?\*\)/g,"").replace(/\/\/.*$/gm,"");
 let tt;function toast(m){const e=$("#toast");e.textContent=m;e.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>e.classList.remove("on"),4500)}
 function textOf(a){
   let t=a.text||"";
@@ -442,54 +347,21 @@ function textOf(a){
 function extractST(t){
   const IL=/^\s*(\d+\s+)?(LD|LDI|OUT)\s+[XYMTC]\d/im;
   const f=/```[^\n]*\n([\s\S]*?)```/g;let m,best="";
-  while((m=f.exec(t))){if((/(:=|\bPROGRAM\b|\bVAR\b)/i.test(m[1])||IL.test(m[1]))&&m[1].length>best.length)best=m[1]}
-  if(!best){const r=/PROGRAM[\s\S]*?END_PROGRAM/i.exec(t);if(r)best=r[0]}
+  while((m=f.exec(t))){if(IL.test(m[1])&&m[1].length>best.length)best=m[1]}
   if(!best){
     const ls=t.split("\n"),M=/^\s*(\d+\s+)?(LD|LDI|AND|ANI|OR|ORI|ANB|ORB|MPS|MRD|MPP|OUT|SET|RST|END)\b(\s+[A-Za-z]\d*.*)?$/i,ix=[];
     ls.forEach((l,i)=>{if(M.test(l))ix.push(i)});
     if(ix.length>=3){const b=ls.slice(ix[0],ix[ix.length-1]+1).join("\n");if(IL.test(b))best=b}
   }
-  if(!best){
-    const ls=t.split("\n"),ix=[];
-    ls.forEach((l,i)=>{if(/(:=.*;|^\s*(VAR|END_VAR|END_IF|IF\b)|:\s*BOOL)/i.test(l))ix.push(i)});
-    if(ix.filter(i=>/:=/.test(ls[i])).length>=1&&ix.length>=2)best=ls.slice(ix[0],ix[ix.length-1]+1).join("\n");
-  }
   return best.trim();
 }
-function hmiFrom(code){
-  if(isIL(code))return hmiIL(code);
-  const ins=[],outs=[];let sec=null;
-  strip(code).split("\n").forEach(l=>{
-    const t=l.trim(),s=/^VAR(_INPUT|_OUTPUT)?\b/i.exec(t);
-    if(s){sec=(s[1]||"").toUpperCase();return}
-    if(/^END_VAR/i.test(t)){sec=null;return}
-    const m=sec!==null&&/^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:\s*BOOL/i.exec(t);
-    if(m)m[1].split(",").forEach(n=>{n=n.trim().toUpperCase();if(sec==="_INPUT")ins.push(n);else if(sec==="_OUTPUT")outs.push(n)});
-  });
-  if(!ins.length&&!outs.length){
-    const L=new Set(),R=new Set(),re=/([A-Za-z_]\w*)\s*:=\s*([^;]+);/g,b=strip(code);let m;
-    while((m=re.exec(b))){L.add(m[1].toUpperCase());(m[2].match(/\b[A-Za-z_]\w*\b/g)||[]).forEach(id=>{id=id.toUpperCase();if(!KW.has(id))R.add(id)})}
-    R.forEach(g=>{if(!L.has(g))ins.push(g)});L.forEach(g=>outs.push(g));
-  }
-  return [...ins.map(g=>({t:"btn",l:g,g})),...outs.map(g=>({t:"lamp",l:g,g}))];
-}
-function compile(code){
-  if(isIL(code))return compileIL(code);
-  const body=strip(code).replace(/VAR[\s\S]*?END_VAR/gi,"").replace(/\b(END_)?PROGRAM\b\s*\w*/gi,"");
-  if(/\b(IF|CASE|FOR|WHILE|REPEAT)\b/i.test(body))return null;
-  const st=[],re=/([A-Za-z_]\w*)\s*:=\s*([^;]+);/g;let m;
-  while((m=re.exec(body))){
-    let e=m[2].replace(/\bAND\b/gi,"&&").replace(/\bOR\b/gi,"||").replace(/\bXOR\b/gi,"!=").replace(/\bNOT\b/gi,"!").replace(/\bTRUE\b/gi,"true").replace(/\bFALSE\b/gi,"false");
-    if(!/^[\w\s()!&|=]+$/.test(e))return null;
-    e=e.replace(/[A-Za-z_]\w*/g,id=>/^(true|false)$/.test(id)?id:`!!S["${id.toUpperCase()}"]`);
-    st.push(`S["${m[1].toUpperCase()}"]=(${e})?1:0;`);
-  }
-  try{return st.length?new Function("S",st.join("")):null}catch{return null}
-}
+function hmiFrom(code){return isIL(code)?hmiIL(code):[]}
+function compile(code){return isIL(code)?compileIL(code):null}
 function applyFromChat(text){
-  const code=extractST(text);if(!code)return;
+  const code=extractST(text);
+  if(!code){if(/:=|\bEND_PROGRAM\b/i.test(text))toast("GX Works2 명령어(LD/OUT/END)가 아니라서 불러오지 못했어요");return}
   $("#g-out").textContent=code;$("#g-note").textContent="AI가 만든 코드입니다.";
-  setCM(isIL(code)?"gx":"st");$("#c-in").value=code;check();
+  $("#c-in").value=code;check();
   const w=loadHmi(code);
   document.querySelector("[data-tab=gen]").click();
   const n=lintAny(code).filter(x=>x.lv==="err").length;
