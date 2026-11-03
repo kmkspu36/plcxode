@@ -71,6 +71,9 @@ pre{background:var(--code);color:var(--code-ink);padding:18px;border-radius:12px
 .fchip span{overflow-wrap:anywhere}
 #timer{font-size:14px;font-weight:600;margin-left:auto}
 #timer.run{color:var(--amber)}#timer.done{color:var(--accent-d)}
+.seg{display:inline-flex;gap:4px;padding:4px;background:var(--soft);border:1px solid var(--line);border-radius:12px;margin-bottom:14px}
+.seg button{font:inherit;font-weight:600;padding:7px 18px;border:0;border-radius:9px;background:none;color:var(--sub);cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--panel);color:var(--accent-d);box-shadow:0 1px 3px rgba(0,0,0,.12)}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:20;max-width:92vw;text-align:center}
 #toast.on{opacity:1;transform:translate(-50%,0)}
 </style>
@@ -122,14 +125,19 @@ pre{background:var(--code);color:var(--code-ink);padding:18px;border-radius:12px
     </div>
 
     <div class="pane" id="p-chk">
-      <label for="c-in">검사할 코드 (GX Works2 명령어 또는 ST)</label>
+      <div class="seg" id="c-seg" role="group" aria-label="검사 방식">
+        <button data-m="gx" aria-pressed="true">GX Works2</button>
+        <button data-m="st" aria-pressed="false">ST</button>
+      </div>
+      <label for="c-in" id="c-lab">검사할 GX Works2 명령어</label>
       <textarea id="c-in" spellcheck="false" placeholder="LD X0&#10;OR Y0&#10;ANI X1&#10;OUT Y0&#10;END"></textarea>
       <div class="btns">
         <button class="btn" id="c-go">오류 검사</button>
         <button class="btn ghost" id="c-ex">오류 있는 예제 넣기</button>
       </div>
       <ul class="res" id="c-out" aria-live="polite"></ul>
-      <p class="hint">GX Works2 명령어: END 누락, 모르는 명령어, 디바이스 이름, 입력(X)에 출력, 타이머·카운터 설정값(K) 누락과 번호 중복, 이중 코일, ANB/ORB·MPS/MPP 짝, 읽기만 하는 M.<br>ST 코드: 블록 짝, 세미콜론 누락, 선언 안 된 변수, 이중 대입, 안 쓰는 변수.</p>
+      <p class="hint" id="c-hint-gx">검사 항목: END 누락, 모르는 명령어, 디바이스 이름, 입력(X)에 출력, 타이머·카운터 설정값(K) 누락과 번호 중복, 이중 코일, ANB/ORB·MPS/MPP 짝, 읽기만 하는 M.</p>
+      <p class="hint" id="c-hint-st" hidden>검사 항목: 블록 짝(IF·FOR·WHILE·CASE·VAR·PROGRAM), 세미콜론 누락, 선언 안 된 변수, 이중 대입, 안 쓰는 변수.</p>
     </div>
 
     <div class="pane" id="p-hmi">
@@ -207,7 +215,7 @@ $("#g-pat").onchange=gen;
 setMode();gen();
 $("#g-go").onclick=gen;
 $("#g-copy").onclick=()=>navigator.clipboard&&navigator.clipboard.writeText($("#g-out").textContent).then(()=>{$("#g-copy").textContent="복사됨";setTimeout(()=>$("#g-copy").textContent="복사",1200)});
-$("#g-chk").onclick=()=>{gen();$("#c-in").value=$("#g-out").textContent;document.querySelector('[data-tab=chk]').click();check()};
+$("#g-chk").onclick=()=>{gen();setCM(isIL($("#g-out").textContent)?"gx":"st");$("#c-in").value=$("#g-out").textContent;document.querySelector('[data-tab=chk]').click();check()};
 
 /* 오류 검사 */
 const KW=new Set("PROGRAM END_PROGRAM VAR VAR_INPUT VAR_OUTPUT VAR_IN_OUT VAR_GLOBAL VAR_TEMP END_VAR IF THEN ELSIF ELSE END_IF CASE OF END_CASE FOR TO BY DO END_FOR WHILE END_WHILE REPEAT UNTIL END_REPEAT EXIT RETURN AND OR XOR NOT MOD TRUE FALSE BOOL INT DINT REAL TIME WORD DWORD STRING TON TOF TP CTU CTD CTUD R_TRIG F_TRIG IN PT PV CU CD CLK RESET LOAD SET".split(" "));
@@ -361,8 +369,23 @@ function loadHmi(code){
 $("#g-hmi").onclick=()=>{const n=loadHmi($("#g-out").textContent);document.querySelector("[data-tab=hmi]").click();toast(n?"화면 부품 "+n+"개를 만들었어요":"화면 부품을 만들 수 없는 코드예요")};
 setInterval(()=>{if(PROG&&PROG.timed){const b=JSON.stringify(S);sim(100);if(JSON.stringify(S)!==b)draw()}},100);
 
+let CM="gx";const CODE={gx:"",st:""};
+function setCM(m){
+  if(m===CM)return;
+  CODE[CM]=$("#c-in").value;CM=m;$("#c-in").value=CODE[m];
+  document.querySelectorAll("#c-seg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.m===m));
+  $("#c-lab").textContent=m==="gx"?"검사할 GX Works2 명령어":"검사할 ST 코드";
+  $("#c-in").placeholder=m==="gx"?"LD X0\nOR Y0\nANI X1\nOUT Y0\nEND":"PROGRAM Demo\nVAR_INPUT\n  START : BOOL;\nEND_VAR";
+  $("#c-hint-gx").hidden=m!=="gx";$("#c-hint-st").hidden=m!=="st";
+  check();
+}
+document.querySelectorAll("#c-seg button").forEach(b=>b.onclick=()=>setCM(b.dataset.m));
 function check(){
-  const r=lintAny($("#c-in").value),L={err:"오류",warn:"주의",info:"참고"};
+  const src=$("#c-in").value,L={err:"오류",warn:"주의",info:"참고"};
+  if(!src.trim()){$("#c-out").innerHTML="";return}
+  const r=CM==="gx"?lintIL(src):lint(src);
+  const other=CM==="gx"?(!isIL(src)&&/:=|\bPROGRAM\b/i.test(src)):isIL(src);
+  if(other)r.unshift({lv:"warn",ln:1,msg:CM==="gx"?"ST 코드처럼 보입니다. 위에서 ‘ST’ 검사를 선택해 보세요.":"GX Works2 명령어처럼 보입니다. 위에서 ‘GX Works2’ 검사를 선택해 보세요."});
   $("#c-out").innerHTML=r.length?r.map(x=>`<li class="${x.lv}"><b>${L[x.lv]}</b>${x.ln}행 · ${esc(x.msg)}</li>`).join(""):'<li class="ok"><b>통과</b>발견된 문제가 없습니다.</li>';
 }
 $("#c-go").onclick=check;
@@ -379,7 +402,7 @@ st:[
 `PROGRAM Hold\nVAR_INPUT\n  START : BOOL;\n  STOP : BOOL;\nEND_VAR\nVAR_OUTPUT\n  MOTOR : BOOL;\nEND_VAR\n\nIF START THEN\n  MOTOR := TRUE;\nEND_WHILE;\nEND_PROGRAM`
 ]};
 const exIdx={gx:0,st:0};
-$("#c-ex").onclick=()=>{const m=$("#g-mode").value,L=EX[m],i=exIdx[m]%L.length;exIdx[m]++;$("#c-in").value=L[i];check();toast("오류 예제 "+(i+1)+" / "+L.length)};
+$("#c-ex").onclick=()=>{const m=CM,L=EX[m],i=exIdx[m]%L.length;exIdx[m]++;$("#c-in").value=L[i];check();toast("오류 예제 "+(i+1)+" / "+L.length)};
 
 /* 화면 작화 */
 let W=[{t:"btn",l:"시작",g:"START"},{t:"btn",l:"정지",g:"STOP"},{t:"lamp",l:"운전",g:"RUN"}];
@@ -466,7 +489,7 @@ function compile(code){
 function applyFromChat(text){
   const code=extractST(text);if(!code)return;
   $("#g-out").textContent=code;$("#g-note").textContent="AI가 만든 코드입니다.";
-  $("#c-in").value=code;check();
+  setCM(isIL(code)?"gx":"st");$("#c-in").value=code;check();
   const w=loadHmi(code);
   document.querySelector("[data-tab=gen]").click();
   const n=lintAny(code).filter(x=>x.lv==="err").length;
