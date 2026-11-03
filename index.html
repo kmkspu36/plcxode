@@ -366,7 +366,20 @@ function check(){
   $("#c-out").innerHTML=r.length?r.map(x=>`<li class="${x.lv}"><b>${L[x.lv]}</b>${x.ln}행 · ${esc(x.msg)}</li>`).join(""):'<li class="ok"><b>통과</b>발견된 문제가 없습니다.</li>';
 }
 $("#c-go").onclick=check;
-$("#c-ex").onclick=()=>{$("#c-in").value=$("#g-mode").value==="gx"?`LD X0\nOR Y0\nANI X2\nOUT Y0\nLD X1\nOUT X3\nLD M5\nOUT T0\nLD T0\nOUT Y0`:`PROGRAM Demo\nVAR_INPUT\n  START : BOOL;\n  STOP : BOOL;\nEND_VAR\nVAR_OUTPUT\n  MOTOR : BOOL;\nEND_VAR\nVAR\n  UNUSED : INT;\nEND_VAR\n\nIF START THEN\n  MOTOR := TRUE\n  LAMP := TRUE;\nMOTOR := NOT STOP;\nMOTOR := FALSE;\nEND_PROGRAM`;check()};
+const EX={
+gx:[
+`LD X0\nOR Y0\nANI X2\nOUT Y0\nLD X1\nOUT X3\nLD M5\nOUT T0\nLD T0\nOUT Y0`,
+`LD X0\nOR Y0\nANB\nOUTT Y0\nLD X1\nOUT Y1`,
+`LD X0\nOUT T0 K30\nLD X1\nOUT T0 K50\nLD X2\nOUT C0\nLD C0\nOUT Y0\nEND`,
+`LD X0\nMPS\nAND X1\nOUT Y0\nLD Q5\nOUT Y1\nEND\nOUT Y2`
+],
+st:[
+`PROGRAM Demo\nVAR_INPUT\n  START : BOOL;\n  STOP : BOOL;\nEND_VAR\nVAR_OUTPUT\n  MOTOR : BOOL;\nEND_VAR\nVAR\n  UNUSED : INT;\nEND_VAR\n\nIF START THEN\n  MOTOR := TRUE\n  LAMP := TRUE;\nMOTOR := NOT STOP;\nMOTOR := FALSE;\nEND_PROGRAM`,
+`PROGRAM Test\nVAR_INPUT\n  A : BOOL\nEND_VAR\nVAR_OUTPUT\n  Y : BOOL;\nEND_VAR\n\nY := A AND B;\nEND_IF;\nEND_PROGRAM`,
+`PROGRAM Hold\nVAR_INPUT\n  START : BOOL;\n  STOP : BOOL;\nEND_VAR\nVAR_OUTPUT\n  MOTOR : BOOL;\nEND_VAR\n\nIF START THEN\n  MOTOR := TRUE;\nEND_WHILE;\nEND_PROGRAM`
+]};
+const exIdx={gx:0,st:0};
+$("#c-ex").onclick=()=>{const m=$("#g-mode").value,L=EX[m],i=exIdx[m]%L.length;exIdx[m]++;$("#c-in").value=L[i];check();toast("오류 예제 "+(i+1)+" / "+L.length)};
 
 /* 화면 작화 */
 let W=[{t:"btn",l:"시작",g:"START"},{t:"btn",l:"정지",g:"STOP"},{t:"lamp",l:"운전",g:"RUN"}];
